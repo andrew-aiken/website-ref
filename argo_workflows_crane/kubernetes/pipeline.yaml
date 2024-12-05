@@ -1,0 +1,83 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: build-docker
+  namespace: argo
+spec:
+  arguments:
+    parameters:
+      - name: build_path
+      - name: destination_image_1
+      - name: destination_image_2
+      - name: ecr_repository_2
+      - name: image_tag
+      - name: source_workflow
+  entrypoint: docker
+  onExit: exit-handler
+  serviceAccountName: argo-docker-build
+  templates:
+    - name: docker
+      dag:
+        tasks:
+          - name: kaniko
+            templateRef:
+              name: docker-build
+              template: kaniko
+            arguments:
+              parameters:
+                - name: build_path
+                  value: "{{ workflow.parameters.build_path }}"
+                - name: destination_image
+                  value: "{{ workflow.parameters.destination_image_1 }}"
+                - name: image_tag
+                  value: "{{ workflow.parameters.image_tag }}"
+                - name: source_path
+                  value: "/source"
+                - name: source_workflow
+                  value: "{{ workflow.parameters.source_workflow }}"
+          - name: crane
+            depends: kaniko.Succeeded
+            templateRef:
+              name: crane
+              template: crane
+            arguments:
+              parameters:
+                - name: build_path
+                  value: "{{ workflow.parameters.build_path }}"
+                - name: destination_image
+                  value: "{{ workflow.parameters.destination_image_2 }}"
+                - name: ecr_repository
+                  value: "{{ workflow.parameters.ecr_repository_2 }}"
+                - name: image_tag
+                  value: "{{ workflow.parameters.image_tag }}"
+                - name: source_path
+                  value: "/source"
+          - name: notification
+            depends: crane.Succeeded || crane.Failed
+            templateRef:
+              name: slack-notification
+              template: post
+            arguments:
+              parameters:
+                - name: image_tag
+                  value: "{{ workflow.parameters.image_tag }}"
+                - name: webhook_secret
+                  value: build-notification
+    - name: exit-handler
+      steps:
+      - - name: notify-on-failure
+          when: "{{ workflow.status }} != Succeeded"
+          templateRef:
+            name: build-notification
+            template: post
+          arguments:
+            parameters:
+              - name: workflowName
+                value: "{{ workflow.name }}"
+              - name: webhook_secret
+                value: build-notification
+  volumes:
+    - name: source-code
+      persistentVolumeClaim:
+        claimName: "{{ workflow.parameters.source_workflow }}-source-code"

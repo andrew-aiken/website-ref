@@ -1,0 +1,38 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: docker-build
+  namespace: argo
+spec:
+  arguments:
+    parameters:
+      - name: build_path
+      - name: destination_image
+      - name: image_tag
+      - name: source_path
+        value: /source
+      - name: source_workflow
+  entrypoint: kaniko
+  serviceAccountName: argo-docker-build
+  templates:
+    - name: kaniko
+      container:
+        args:
+          - '--context={{ inputs.parameters.source_path }}/{{inputs.parameters.build_path }}'
+          - '--destination={{ inputs.parameters.destination_image }}:{{ inputs.parameters.image_tag }}'
+          - '--tar-path={{ inputs.parameters.source_path }}/{{inputs.parameters.build_path }}/image.tar'
+        image: gcr.io/kaniko-project/executor:v1.23.2
+        volumeMounts:
+          - mountPath: '{{ inputs.parameters.source_path }}'
+            name: source-code
+      inputs:
+        parameters:
+          - name: build_path
+          - name: destination_image
+          - name: image_tag
+          - name: source_path
+  volumes:
+    - name: source-code
+      persistentVolumeClaim:
+        claimName: '{{ workflow.parameters.source_workflow }}-source-code'

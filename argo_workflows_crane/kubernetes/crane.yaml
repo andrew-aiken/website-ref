@@ -1,0 +1,43 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: crane
+  namespace: argo
+spec:
+  arguments:
+    parameters:
+      - name: build_path
+      - name: destination_image
+      - name: ecr_repository
+      - name: image_tag
+      - name: source_path
+        value: /source
+  entrypoint: crane
+  serviceAccountName: argo-crane-push
+  templates:
+    - name: crane
+      container:
+        image: 0123456789.dkr.ecr.us-east-1.amazonaws.com/infrasec-crane:latest
+        env:
+          - name: AWS_ECR_ENDPOINT
+            value: '{{ inputs.parameters.ecr_repository }}'
+          - name: IMAGE_TAR
+            value: '{{ inputs.parameters.source_path }}/{{ inputs.parameters.build_path }}/image.tar'
+          - name: IMAGE_URI
+            value: '{{ inputs.parameters.ecr_repository }}/{{ inputs.parameters.destination_image }}:{{ inputs.parameters.image_tag }}'
+        volumeMounts:
+          - mountPath: '{{ inputs.parameters.source_path }}'
+            name: source-code
+      inputs:
+        parameters:
+          - name: build_path
+          - name: destination_image
+          - name: ecr_repository
+          - name: image_tag
+          - name: source_path
+      podSpecPatch: '{"serviceAccountName": "argo-crane-push"}'
+  volumes:
+    - name: source-code
+      persistentVolumeClaim:
+        claimName: '{{ workflow.parameters.source_workflow }}-source-code'

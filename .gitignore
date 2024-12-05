@@ -39,3 +39,6 @@ terraform.rc
 ## Manual Addition
 .terraform.lock.hcl
 ### End Terraform
+
+# Golang
+go.sum
