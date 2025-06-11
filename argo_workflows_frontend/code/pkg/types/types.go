@@ -1,10 +1,5 @@
 package types
 
-type DomainMapping struct {
-	Production  map[string]string `yaml:"main"`
-	Development map[string]string `yaml:"development"`
-}
-
 type EnvironmentMapping map[string]EnvironmentConfig
 
 type EnvironmentConfig struct {
