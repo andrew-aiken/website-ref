@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: build-frontend-config
+  namespace: argo
+data:
+  config.yaml: |
+    development:
+      PROJECT_1:
+        PROJECT_ID: zyx9876543210
+    main:
+      PROJECT_1:
+        PROJECT_ID: abc1234567890
+      PROJECT_2:
+        PROJECT_ID: abc1234567890
+        BACKEND_URL: https://project2-server.example.com
+  envMapping.yaml: |
+    development:
+      bucket: example-spa-frontend
+      distribution: DEV-DISTRIBUTION-ID
+      domain: example.com
+    main:
+      bucket: example-spa-frontend
+      distribution: PROD-DISTRIBUTION-ID
+      domain: example.com

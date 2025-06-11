@@ -1,0 +1,33 @@
+services:
+  cloudfront-frontend:
+    build:
+      context: ./
+      target: production
+    environment:
+      - AWS_PROFILE=devops-admin
+      - AWS_REGION=us-east-2
+    command:
+      - publish
+      - --project=PROJECT_1
+      - --release-stage=development
+      - --output=/tmp/dist
+      - -d
+    volumes:
+      - ~/custom-app:/mnt/workspace
+      - ./config.yaml:/mnt/config.yaml:ro
+      - ./envMapping.yaml:/mnt/envMapping.yaml:ro
+      - ./output:/mnt/dist
+      - ~/.aws:/home/node/.aws
+    user: 1000:1000
+    read_only: false
+    privileged: false
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: 3000M
+        reservations:
+          cpus: 0.5
+          memory: 100M

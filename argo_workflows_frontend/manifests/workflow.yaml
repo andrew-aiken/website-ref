@@ -1,0 +1,123 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: build-frontend
+  namespace: argo
+spec:
+  arguments:
+    parameters:
+      - name: build_path
+      - name: release_stage
+      - name: project
+      - name: source_path
+        value: "/mnt/workspace"
+      - name: source_workflow
+  entrypoint: frontend
+  onExit: exit-handler
+  serviceAccountName: argo-frontend-build
+  automountServiceAccountToken: true
+  podGC:
+    strategy: OnWorkflowCompletion
+    deleteDelayDuration: 600s
+  securityContext:
+    fsGroup: 1000
+  templates:
+    - name: frontend
+      dag:
+        tasks:
+          - name: cloudfront
+            template: cloudfront-frontend
+            arguments:
+              parameters:
+                - name: build_path
+                  value: "{{ workflow.parameters.build_path }}"
+                - name: project
+                  value: "{{ workflow.parameters.project }}"
+                - name: release_stage
+                  value: "{{ workflow.parameters.release_stage }}"
+                - name: source_path
+                  value: "{{ workflow.parameters.source_path }}"
+          - name: notification
+            depends: cloudfront
+            templateRef:
+              name: slack-notification
+              template: post
+            arguments:
+              parameters:
+                - name: commit
+                  value: "{{ workflow.parameters.commit }}"
+                - name: releaseStage
+                  value: "{{ workflow.parameters.release_stage }}"
+                - name: webhook_secret
+                  value: slack-notification
+                - name: webhook_secret_key
+                  value: frontend
+    - name: cloudfront-frontend
+      archiveLocation:
+        archiveLogs: true
+      inputs:
+        parameters:
+          - name: build_path
+          - name: project
+          - name: release_stage
+          - name: source_path
+      container:
+        name: cloudfront-frontend
+        image: DNE/cloudfront-frontend:latest
+        resources:
+          limits:
+            cpu: 500m
+            memory: 3Gi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        command:
+          - /cloudfront-frontend
+        args:
+          - publish
+          - --project={{ inputs.parameters.project }}
+          - --release-stage={{ inputs.parameters.release_stage }}
+          - '--workspace={{ inputs.parameters.source_path }}/{{ inputs.parameters.build_path }}'
+          - --output=/tmp/dist
+        securityContext:
+          capabilities:
+            add:
+              - SYS_MKDIR
+            drop:
+              - ALL
+          privileged: false
+          runAsGroup: 1000
+          runAsNonRoot: true
+          runAsUser: 1000
+        volumeMounts:
+          - name: source-code
+            mountPath: "{{ inputs.parameters.source_path }}"
+          - name: config
+            mountPath: /mnt/config.yaml
+            readOnly: true
+            subPath: config.yaml
+          - name: config
+            mountPath: /mnt/envMapping.yaml
+            readOnly: true
+            subPath: envMapping.yaml
+    - name: exit-handler
+      steps:
+      - - name: notify-on-failure
+          when: "{{ workflow.status }} != Succeeded"
+          templateRef:
+            name: build-notification
+            template: post
+          arguments:
+            parameters:
+              - name: workflowName
+                value: "{{ workflow.name }}"
+              - name: webhook_secret
+                value: slack-build-notification
+  volumes:
+    - name: source-code
+      persistentVolumeClaim:
+        claimName: "{{ workflow.parameters.source_workflow }}-source-code"
+    - name: config
+      configMap:
+        name: build-frontend-config

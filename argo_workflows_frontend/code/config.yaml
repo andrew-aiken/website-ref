@@ -1,0 +1,9 @@
+development:
+  PROJECT_1:
+    PROJECT_ID: zyx9876543210
+main:
+  PROJECT_1:
+    PROJECT_ID: abc1234567890
+  PROJECT_2:
+    PROJECT_ID: abc1234567890
+    BACKEND_URL: https://project2-server.example.com

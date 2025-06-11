@@ -1,0 +1,8 @@
+development:
+  bucket: example-spa-frontend
+  distribution: DEV-DISTRIBUTION-ID
+  domain: example.com
+main:
+  bucket: example-spa-frontend
+  distribution: PROD-DISTRIBUTION-ID
+  domain: example.com
