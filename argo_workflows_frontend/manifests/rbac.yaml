@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::0123456789:role/argo-frontend-build
+    kubernetes.io/enforce-mountable-secrets: "true"
+  name: argo-frontend-build
+  namespace: argo
+secrets:
+  - name: slack-notification
+  - name: slack-build-notification
